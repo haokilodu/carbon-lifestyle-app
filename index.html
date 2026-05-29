@@ -571,25 +571,28 @@ function savePDF() {
     if (printFooter) printFooter.style.display = 'block';
     var appHeader = target.querySelector('.app-header');
     if (appHeader) appHeader.style.display = 'none';
-    var keepBg = {'progress-bar-inner':1,'final-cat-header':1,'new-badge':1,'existing-badge':1};
-    var allEls = target.querySelectorAll('*');
-    var savedStyles = [];
-    allEls.forEach(function(el) {
-      var cs = window.getComputedStyle(el);
-      var saved = { el: el, bg: el.style.backgroundColor, color: el.style.color, border: el.style.border, borderColor: el.style.borderColor, boxShadow: el.style.boxShadow };
-      savedStyles.push(saved);
-      var dominated = false;
-      var cls = el.className || '';
-      for (var k in keepBg) { if (cls.indexOf(k) !== -1) { dominated = true; break; } }
-      if (dominated) { el.style.backgroundColor = cs.backgroundColor; } else { el.style.backgroundColor = '#ffffff'; }
-      el.style.color = cs.color;
-      el.style.borderColor = cs.borderColor;
-      el.style.boxShadow = 'none';
-    });
-    target.style.backgroundColor = '#ffffff';
+    var pdfStyle = document.createElement('style');
+    pdfStyle.id = 'pdf-override';
+    pdfStyle.textContent = [
+      ':root{--green-50:#fff!important;--green-100:#e8e8e8!important;--green-200:#ccc!important;--bg:#fff!important;--shadow:none!important;--shadow-lg:none!important}',
+      '#app,#app *{box-shadow:none!important}',
+      'body,.screen,.container,.result-card,.info-box,.cfp-flow,.cfp-step,.cfp-box,.sc-metric,.sc-cat,.final-list,.final-item,.share-card,.progress-container{background-color:#fff!important}',
+      '.section-title,.cfp-box .value,.share-card-header .sc-city,.sc-metric .sc-m-value{color:#1a1a1a!important}',
+      '.cfp-box .label,.cfp-box .unit,.sc-metric .sc-m-label,.sc-metric .sc-m-unit,.share-card-header .sc-date,.info-box,.final-item,.sc-cat{color:#444!important}',
+      '.final-section h3,.progress-info .progress-left{color:#222!important}',
+      '.cfp-box{border:2px solid #bbb!important}',
+      '.cfp-box.target{border-color:#e8913a!important}',
+      '.cfp-box.gap{border-color:#d35549!important}',
+      '.cfp-box.target .value{color:#e8913a!important}',
+      '.cfp-box.gap .value{color:#d35549!important}',
+      '.share-card{border:2px solid #aaa!important}',
+      '.progress-bar-outer{background-color:#e0e0e0!important}',
+      '.print-header h1{color:#1a1a1a!important}',
+      '.print-header p,.print-footer{color:#666!important}'
+    ].join('');
+    document.head.appendChild(pdfStyle);
     return html2canvas(target, { scale: 2, useCORS: true, backgroundColor: '#ffffff', windowWidth: 800 }).then(function(canvas) {
-      savedStyles.forEach(function(s) { s.el.style.backgroundColor = s.bg; s.el.style.color = s.color; s.el.style.border = s.border; s.el.style.borderColor = s.borderColor; s.el.style.boxShadow = s.boxShadow; });
-      target.style.backgroundColor = '';
+      pdfStyle.remove();
       var imgData = canvas.toDataURL('image/jpeg', 0.92);
       var pdf = new jspdf.jsPDF('p', 'mm', 'a4');
       var pdfW = pdf.internal.pageSize.getWidth();
@@ -622,7 +625,7 @@ function savePDF() {
       if (btn) { btn.textContent = 'PDFで保存'; btn.disabled = false; }
     });
   }).catch(function(err) {
-    try { savedStyles.forEach(function(s) { s.el.style.backgroundColor = s.bg; s.el.style.color = s.color; s.el.style.border = s.border; s.el.style.borderColor = s.borderColor; s.el.style.boxShadow = s.boxShadow; }); target.style.backgroundColor = ''; } catch(e) {}
+    var ps = document.getElementById('pdf-override'); if (ps) ps.remove();
     noPrintEls.forEach(function(el) { el.style.display = ''; });
     if (printHeader) printHeader.style.display = 'none';
     if (printFooter) printFooter.style.display = 'none';
