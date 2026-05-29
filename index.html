@@ -571,13 +571,17 @@ function savePDF() {
     if (printFooter) printFooter.style.display = 'block';
     var appHeader = target.querySelector('.app-header');
     if (appHeader) appHeader.style.display = 'none';
+    var keepBg = {'progress-bar-inner':1,'final-cat-header':1,'new-badge':1,'existing-badge':1};
     var allEls = target.querySelectorAll('*');
     var savedStyles = [];
     allEls.forEach(function(el) {
       var cs = window.getComputedStyle(el);
       var saved = { el: el, bg: el.style.backgroundColor, color: el.style.color, border: el.style.border, borderColor: el.style.borderColor, boxShadow: el.style.boxShadow };
       savedStyles.push(saved);
-      el.style.backgroundColor = cs.backgroundColor;
+      var dominated = false;
+      var cls = el.className || '';
+      for (var k in keepBg) { if (cls.indexOf(k) !== -1) { dominated = true; break; } }
+      if (dominated) { el.style.backgroundColor = cs.backgroundColor; } else { el.style.backgroundColor = '#ffffff'; }
       el.style.color = cs.color;
       el.style.borderColor = cs.borderColor;
       el.style.boxShadow = 'none';
