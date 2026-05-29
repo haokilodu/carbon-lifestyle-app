@@ -551,155 +551,165 @@ function loadScript(url) {
   });
 }
 
+function _generatePDF() {
+  var city = getCityData();
+  var cityName = city.name;
+  var avg = city.cfp;
+  var tgt = city.target;
+  var r1 = calcReduction(state.phase1Checked, city);
+  var r2 = calcReduction(state.phase2Checked, city);
+  var totalR = r1 + r2;
+  var current = avg - totalR;
+  var gap = Math.max(current - tgt, 0);
+  var pct = Math.min(Math.round(Math.abs(totalR) / (avg - tgt) * 100), 100);
+  var cN = ['住居','移動','食','消費財・レジャー'];
+  var cIC = ['住','移','食','買'];
+  function catItems(set) {
+    var r = {};
+    CATEGORIES.forEach(function(c) { r[c.name] = []; });
+    set.forEach(function(opt) {
+      for (var i = 0; i < CATEGORIES.length; i++) {
+        var c = CATEGORIES[i];
+        var opts = c.options || c.items || [];
+        if (opts.indexOf(opt) !== -1) {
+          r[c.name].push({ n: opt, v: city.options[opt] || 0 });
+          break;
+        }
+      }
+    });
+    return r;
+  }
+  var p1 = catItems(state.phase1Checked), p2 = catItems(state.phase2Checked);
+  var S=2,LW=700,PAD=24,CW=LW-PAD*2;
+  function countSec(items){var h=48;for(var ci=0;ci<cN.length;ci++){var list=items[cN[ci]];if(!list||!list.length)continue;h+=28;h+=list.length*28;}return h;}
+  var estH=84+80+16+30+26+20;
+  if(state.phase1Checked.size>0)estH+=countSec(p1);
+  if(state.phase2Checked.size>0)estH+=countSec(p2);
+  estH+=80;
+  var cv=document.createElement('canvas');
+  cv.width=LW*S; cv.height=Math.ceil(estH*S);
+  var cx=cv.getContext('2d');
+  cx.scale(S,S);
+  cx.fillStyle='#ffffff'; cx.fillRect(0,0,LW,estH);
+  var ff='"Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",sans-serif';
+  function sf(sz,wt){cx.font=(wt||'normal')+' '+sz+'px '+ff;}
+  function rr(x,y,w,h,r){cx.beginPath();cx.moveTo(x+r,y);cx.lineTo(x+w-r,y);cx.quadraticCurveTo(x+w,y,x+w,y+r);cx.lineTo(x+w,y+h-r);cx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);cx.lineTo(x+r,y+h);cx.quadraticCurveTo(x,y+h,x,y+h-r);cx.lineTo(x,y+r);cx.quadraticCurveTo(x,y,x+r,y);cx.closePath();}
+  var cy2=0;
+  cx.fillStyle='#1e5631'; cx.fillRect(0,0,LW,64);
+  cx.fillStyle='#ffffff'; sf(18,'bold');
+  cx.textAlign='center'; cx.textBaseline='middle';
+  cx.fillText(cityName+' — 脱炭素型ライフスタイル診断結果',LW/2,26);
+  sf(11,'normal'); cx.globalAlpha=0.85;
+  cx.fillText('2030年目標：3,000 kgCO2e/人/年 | '+new Date().toLocaleDateString('ja-JP'),LW/2,48);
+  cx.globalAlpha=1.0; cy2=84;
+  var bW=Math.floor((CW-20)/3),bH=80;
+  var bx0=[
+    {l:cityName+'の平均',v:avg.toLocaleString(),u:'kgCO2e/人/年',bg:'#f0f0f0',bd:null,vc:'#222222'},
+    {l:'あなたの目標CFP',v:current.toLocaleString(),u:'kgCO2e/人/年',bg:'#fff5f0',bd:'#e8913a',vc:'#e8913a'},
+    {l:'あと必要',v:gap.toLocaleString(),u:'kgCO2e',bg:'#fff3e0',bd:null,vc:'#d35549'}
+  ];
+  for(var i=0;i<3;i++){
+    var b=bx0[i],bx=PAD+i*(bW+10);
+    cx.fillStyle=b.bg; rr(bx,cy2,bW,bH,10); cx.fill();
+    if(b.bd){cx.strokeStyle=b.bd;cx.lineWidth=2;cx.stroke();}
+    cx.textAlign='center';cx.textBaseline='middle';
+    cx.fillStyle='#888888';sf(11,'normal');cx.fillText(b.l,bx+bW/2,cy2+16);
+    cx.fillStyle=b.vc;sf(24,'800');cx.fillText(b.v,bx+bW/2,cy2+42);
+    cx.fillStyle='#888888';sf(10,'normal');cx.fillText(b.u,bx+bW/2,cy2+66);
+  }
+  cy2+=bH+16;
+  cx.textAlign='center';cx.textBaseline='middle';
+  cx.fillStyle='#333333';sf(14,'bold');
+  cx.fillText('合計削減量：'+Math.abs(totalR).toLocaleString()+' kgCO2e（'+pct+'%達成）',LW/2,cy2+10);
+  cy2+=30;
+  var barH=26,barC=pct>=100?'#3a9d6a':pct>=60?'#4caf7c':pct>=30?'#e8913a':'#d35549';
+  cx.fillStyle='#e0e0e0';rr(PAD,cy2,CW,barH,13);cx.fill();
+  var fW=Math.max(CW*pct/100,40);
+  cx.fillStyle=barC;rr(PAD,cy2,fW,barH,13);cx.fill();
+  cx.fillStyle='#ffffff';sf(12,'bold');
+  cx.textAlign='right';cx.textBaseline='middle';
+  cx.fillText(pct+'%',PAD+fW-10,cy2+barH/2);
+  cy2+=barH+20;
+  function drawSec(title,color,items,badge,bbg){
+    cx.fillStyle=color;rr(PAD,cy2,CW,36,8);cx.fill();
+    cx.fillStyle='#ffffff';sf(14,'bold');
+    cx.textAlign='left';cx.textBaseline='middle';
+    cx.fillText(title,PAD+14,cy2+18);cy2+=36;
+    for(var ci=0;ci<cN.length;ci++){
+      var cn=cN[ci],list=items[cn];
+      if(!list||!list.length)continue;
+      var sub=list.reduce(function(s,x){return s+x.v;},0);
+      cx.fillStyle='#eeeeee';cx.fillRect(PAD,cy2,CW,28);
+      cx.fillStyle='#333333';sf(12,'bold');
+      cx.textAlign='left';cx.textBaseline='middle';
+      cx.fillText(cIC[ci]+' '+cn,PAD+12,cy2+14);
+      cx.textAlign='right';cx.fillText('-'+sub.toLocaleString()+' kg',PAD+CW-12,cy2+14);
+      cy2+=28;
+      for(var j=0;j<list.length;j++){
+        var it=list[j];
+        cx.fillStyle='#ffffff';cx.fillRect(PAD,cy2,CW,28);
+        cx.strokeStyle='#e0e0e0';cx.lineWidth=0.5;
+        cx.beginPath();cx.moveTo(PAD,cy2+28);cx.lineTo(PAD+CW,cy2+28);cx.stroke();
+        cx.fillStyle=bbg;rr(PAD+12,cy2+6,48,16,8);cx.fill();
+        cx.fillStyle='#ffffff';sf(9,'bold');
+        cx.textAlign='center';cx.textBaseline='middle';
+        cx.fillText(badge,PAD+12+24,cy2+14);
+        cx.fillStyle='#333333';sf(12,'normal');
+        cx.textAlign='left';cx.fillText(it.n,PAD+70,cy2+14);
+        cx.fillStyle='#666666';cx.textAlign='right';
+        cx.fillText('-'+it.v.toLocaleString()+' kg',PAD+CW-12,cy2+14);
+        cy2+=28;
+      }
+    }
+    cy2+=12;
+  }
+  if(state.phase1Checked.size>0)drawSec('すでに実践していること（'+state.phase1Checked.size+'項目）','#2e7d9e',p1,'実践中','#4ca8c8');
+  if(state.phase2Checked.size>0)drawSec('これから取り組むこと（'+state.phase2Checked.size+'項目）','#2d7a4f',p2,'NEW','#4caf7c');
+  cy2+=10;
+  cx.strokeStyle='#dddddd';cx.lineWidth=1;
+  cx.beginPath();cx.moveTo(PAD,cy2);cx.lineTo(PAD+CW,cy2);cx.stroke();
+  cy2+=12;
+  cx.fillStyle='#999999';sf(9,'normal');
+  cx.textAlign='center';cx.textBaseline='top';
+  cx.fillText('出典：国立環境研究所「国内５２都市における脱炭素型ライフスタイルの選択肢」(2021)',LW/2,cy2);
+  cy2+=30;
+  var fh=Math.ceil(cy2*S);
+  var tr=document.createElement('canvas');
+  tr.width=LW*S;tr.height=fh;
+  tr.getContext('2d').drawImage(cv,0,0,LW*S,fh,0,0,LW*S,fh);
+  var pdf=new jspdf.jsPDF('p','mm','a4');
+  var pW2=pdf.internal.pageSize.getWidth(),pH2=pdf.internal.pageSize.getHeight(),mg=6;
+  var cWidth=pW2-mg*2,mpp=cWidth/(LW*S),ppH=Math.floor((pH2-mg*2)/mpp);
+  var srcY=0,pg=0;
+  while(srcY<fh){
+    if(pg>0)pdf.addPage();
+    var sh=Math.min(ppH,fh-srcY);
+    var sc=document.createElement('canvas');
+    sc.width=LW*S;sc.height=sh;
+    sc.getContext('2d').drawImage(tr,0,srcY,LW*S,sh,0,0,LW*S,sh);
+    pdf.addImage(sc.toDataURL('image/png'),'PNG',mg,mg,cWidth,sh*mpp);
+    srcY+=ppH;pg++;
+  }
+  pdf.save('carbon_lifestyle_'+cityName+'.pdf');
+}
+
 function savePDF() {
   var btn = document.querySelector('.no-print[onclick="savePDF()"]');
   if (btn) { btn.textContent = '生成中...'; btn.disabled = true; }
-  var libs = Promise.resolve();
-  if (typeof jspdf === 'undefined') {
-    libs = libs.then(function() { return loadScript('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js'); });
+  function done() { if(btn){btn.textContent='PDFで保存';btn.disabled=false;} }
+  function run() {
+    try { _generatePDF(); } catch(err) { alert('PDF生成エラー: '+err.message); }
+    done();
   }
-  libs.then(function() {
-    try {
-    var city = getCityData();
-    var cityName = city.name;
-    var avg = city.cfp;
-    var tgt = city.target;
-    var r1 = calcReduction(state.phase1Checked, city);
-    var r2 = calcReduction(state.phase2Checked, city);
-    var totalR = r1 + r2;
-    var current = avg - totalR;
-    var gap = Math.max(current - tgt, 0);
-    var pct = Math.min(Math.round(Math.abs(totalR) / (avg - tgt) * 100), 100);
-    function catItems(set) {
-      var r = {};
-      CATEGORIES.forEach(function(c) { r[c.name] = []; });
-      set.forEach(function(opt) {
-        CATEGORIES.forEach(function(c) {
-          if (c.options.indexOf(opt) !== -1) r[c.name].push({ n: opt, v: city.options[opt] || 0 });
-        });
-      });
-      return r;
-    }
-    var p1 = catItems(state.phase1Checked), p2 = catItems(state.phase2Checked);
-    var S=2,LW=700,PAD=24,CW=LW-PAD*2;
-    var cN=['住居','移動','食','消費財・レジャー'];
-    function countSec(items){var h=48;for(var ci=0;ci<cN.length;ci++){var list=items[cN[ci]];if(!list||!list.length)continue;h+=28;h+=list.length*28;}return h;}
-    var estH=84+80+16+30+26+20;
-    if(state.phase1Checked.size>0)estH+=countSec(p1);
-    if(state.phase2Checked.size>0)estH+=countSec(p2);
-    estH+=80;
-    var cv=document.createElement('canvas');
-    cv.width=LW*S; cv.height=Math.ceil(estH*S);
-    var cx=cv.getContext('2d');
-    cx.scale(S,S);
-    cx.fillStyle='#ffffff'; cx.fillRect(0,0,LW,estH);
-    var ff='"Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",sans-serif';
-    function sf(sz,wt){cx.font=(wt||'normal')+' '+sz+'px '+ff;}
-    function rr(x,y,w,h,r){cx.beginPath();cx.moveTo(x+r,y);cx.lineTo(x+w-r,y);cx.quadraticCurveTo(x+w,y,x+w,y+r);cx.lineTo(x+w,y+h-r);cx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);cx.lineTo(x+r,y+h);cx.quadraticCurveTo(x,y+h,x,y+h-r);cx.lineTo(x,y+r);cx.quadraticCurveTo(x,y,x+r,y);cx.closePath();}
-    var cy=0;
-    cx.fillStyle='#1e5631'; cx.fillRect(0,0,LW,64);
-    cx.fillStyle='#ffffff'; sf(18,'bold');
-    cx.textAlign='center'; cx.textBaseline='middle';
-    cx.fillText(cityName+' — 脱炭素型ライフスタイル診断結果',LW/2,26);
-    sf(11,'normal'); cx.globalAlpha=0.85;
-    cx.fillText('2030年目標：3,000 kgCO2e/人/年 | '+new Date().toLocaleDateString('ja-JP'),LW/2,48);
-    cx.globalAlpha=1.0; cy=84;
-    var bW=Math.floor((CW-20)/3),bH=80;
-    var bx0=[
-      {l:cityName+'の平均',v:avg.toLocaleString(),u:'kgCO2e/人/年',bg:'#f0f0f0',bd:null,vc:'#222222'},
-      {l:'あなたの目標CFP',v:current.toLocaleString(),u:'kgCO2e/人/年',bg:'#fff5f0',bd:'#e8913a',vc:'#e8913a'},
-      {l:'あと必要',v:gap.toLocaleString(),u:'kgCO2e',bg:'#fff3e0',bd:null,vc:'#d35549'}
-    ];
-    for(var i=0;i<3;i++){
-      var b=bx0[i],bx=PAD+i*(bW+10);
-      cx.fillStyle=b.bg; rr(bx,cy,bW,bH,10); cx.fill();
-      if(b.bd){cx.strokeStyle=b.bd;cx.lineWidth=2;cx.stroke();}
-      cx.textAlign='center';cx.textBaseline='middle';
-      cx.fillStyle='#888888';sf(11,'normal');cx.fillText(b.l,bx+bW/2,cy+16);
-      cx.fillStyle=b.vc;sf(24,'800');cx.fillText(b.v,bx+bW/2,cy+42);
-      cx.fillStyle='#888888';sf(10,'normal');cx.fillText(b.u,bx+bW/2,cy+66);
-    }
-    cy+=bH+16;
-    cx.textAlign='center';cx.textBaseline='middle';
-    cx.fillStyle='#333333';sf(14,'bold');
-    cx.fillText('合計削減量：'+Math.abs(totalR).toLocaleString()+' kgCO2e（'+pct+'%達成）',LW/2,cy+10);
-    cy+=30;
-    var barH=26,barC=pct>=100?'#3a9d6a':pct>=60?'#4caf7c':pct>=30?'#e8913a':'#d35549';
-    cx.fillStyle='#e0e0e0';rr(PAD,cy,CW,barH,13);cx.fill();
-    var fW=Math.max(CW*pct/100,40);
-    cx.fillStyle=barC;rr(PAD,cy,fW,barH,13);cx.fill();
-    cx.fillStyle='#ffffff';sf(12,'bold');
-    cx.textAlign='right';cx.textBaseline='middle';
-    cx.fillText(pct+'%',PAD+fW-10,cy+barH/2);
-    cy+=barH+20;
-    var cIC=['住','移','食','買'];
-    function drawSec(title,color,items,badge,bbg){
-      cx.fillStyle=color;rr(PAD,cy,CW,36,8);cx.fill();
-      cx.fillStyle='#ffffff';sf(14,'bold');
-      cx.textAlign='left';cx.textBaseline='middle';
-      cx.fillText(title,PAD+14,cy+18);cy+=36;
-      for(var ci=0;ci<cN.length;ci++){
-        var cn=cN[ci],list=items[cn];
-        if(!list||!list.length)continue;
-        var sub=list.reduce(function(s,x){return s+x.v;},0);
-        cx.fillStyle='#eeeeee';cx.fillRect(PAD,cy,CW,28);
-        cx.fillStyle='#333333';sf(12,'bold');
-        cx.textAlign='left';cx.textBaseline='middle';
-        cx.fillText(cIC[ci]+' '+cn,PAD+12,cy+14);
-        cx.textAlign='right';cx.fillText('-'+sub.toLocaleString()+' kg',PAD+CW-12,cy+14);
-        cy+=28;
-        for(var j=0;j<list.length;j++){
-          var it=list[j];
-          cx.fillStyle='#ffffff';cx.fillRect(PAD,cy,CW,28);
-          cx.strokeStyle='#e0e0e0';cx.lineWidth=0.5;
-          cx.beginPath();cx.moveTo(PAD,cy+28);cx.lineTo(PAD+CW,cy+28);cx.stroke();
-          cx.fillStyle=bbg;rr(PAD+12,cy+6,48,16,8);cx.fill();
-          cx.fillStyle='#ffffff';sf(9,'bold');
-          cx.textAlign='center';cx.textBaseline='middle';
-          cx.fillText(badge,PAD+12+24,cy+14);
-          cx.fillStyle='#333333';sf(12,'normal');
-          cx.textAlign='left';cx.fillText(it.n,PAD+70,cy+14);
-          cx.fillStyle='#666666';cx.textAlign='right';
-          cx.fillText('-'+it.v.toLocaleString()+' kg',PAD+CW-12,cy+14);
-          cy+=28;
-        }
-      }
-      cy+=12;
-    }
-    if(state.phase1Checked.size>0)drawSec('すでに実践していること（'+state.phase1Checked.size+'項目）','#2e7d9e',p1,'実践中','#4ca8c8');
-    if(state.phase2Checked.size>0)drawSec('これから取り組むこと（'+state.phase2Checked.size+'項目）','#2d7a4f',p2,'NEW','#4caf7c');
-    cy+=10;
-    cx.strokeStyle='#dddddd';cx.lineWidth=1;
-    cx.beginPath();cx.moveTo(PAD,cy);cx.lineTo(PAD+CW,cy);cx.stroke();
-    cy+=12;
-    cx.fillStyle='#999999';sf(9,'normal');
-    cx.textAlign='center';cx.textBaseline='top';
-    cx.fillText('出典：国立環境研究所「国内５２都市における脱炭素型ライフスタイルの選択肢」(2021)',LW/2,cy);
-    cy+=30;
-    var fh=Math.ceil(cy*S);
-    var tr=document.createElement('canvas');
-    tr.width=LW*S;tr.height=fh;
-    tr.getContext('2d').drawImage(cv,0,0,LW*S,fh,0,0,LW*S,fh);
-    var pdf=new jspdf.jsPDF('p','mm','a4');
-    var pW=pdf.internal.pageSize.getWidth(),pH=pdf.internal.pageSize.getHeight(),mg=6;
-    var cWidth=pW-mg*2,mpp=cWidth/(LW*S),ppH=Math.floor((pH-mg*2)/mpp);
-    var srcY=0,pg=0;
-    while(srcY<fh){
-      if(pg>0)pdf.addPage();
-      var sh=Math.min(ppH,fh-srcY);
-      var sc=document.createElement('canvas');
-      sc.width=LW*S;sc.height=sh;
-      sc.getContext('2d').drawImage(tr,0,srcY,LW*S,sh,0,0,LW*S,sh);
-      pdf.addImage(sc.toDataURL('image/png'),'PNG',mg,mg,cWidth,sh*mpp);
-      srcY+=ppH;pg++;
-    }
-    pdf.save('carbon_lifestyle_'+cityName+'.pdf');
-    }catch(err){alert('PDF生成に失敗しました: '+err.message);}
-    if(btn){btn.textContent='PDFで保存';btn.disabled=false;}
-  }).catch(function(err) {
-    alert('ライブラリの読み込みに失敗しました: '+err.message);
-    if(btn){btn.textContent='PDFで保存';btn.disabled=false;}
-  });
+  if (typeof jspdf === 'undefined') {
+    var s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js';
+    s.onload = function() { setTimeout(run, 100); };
+    s.onerror = function() { alert('jsPDFライブラリの読み込みに失敗しました。ネットワーク接続を確認してください。'); done(); };
+    document.head.appendChild(s);
+  } else {
+    run();
+  }
 }
 
 render();
