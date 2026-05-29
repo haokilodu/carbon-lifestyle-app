@@ -571,7 +571,12 @@ function savePDF() {
     if (printFooter) printFooter.style.display = 'block';
     var appHeader = target.querySelector('.app-header');
     if (appHeader) appHeader.style.display = 'none';
+    var pdfStyle = document.createElement('style');
+    pdfStyle.id = 'pdf-override';
+    pdfStyle.textContent = 'body,.screen,.container,.result-card,.share-card,.cfp-flow,.cfp-step,.info-box,.sc-metric,.sc-cat{background:#fff!important}.final-cat-header{color:#fff!important}.progress-bar-outer{background:#e0e0e0!important}.cfp-box{background:#fff!important;border:2px solid #ccc!important}.cfp-box.target{border-color:#e8913a!important}.cfp-box.gap{border-color:#d35549!important}';
+    document.head.appendChild(pdfStyle);
     return html2canvas(target, { scale: 2, useCORS: true, backgroundColor: '#ffffff', windowWidth: 800 }).then(function(canvas) {
+      document.head.removeChild(pdfStyle);
       var imgData = canvas.toDataURL('image/jpeg', 0.92);
       var pdf = new jspdf.jsPDF('p', 'mm', 'a4');
       var pdfW = pdf.internal.pageSize.getWidth();
@@ -604,6 +609,8 @@ function savePDF() {
       if (btn) { btn.textContent = 'PDFで保存'; btn.disabled = false; }
     });
   }).catch(function(err) {
+    var ps = document.getElementById('pdf-override');
+    if (ps) ps.remove();
     alert('PDF生成に失敗しました: ' + err.message);
     if (btn) { btn.textContent = 'PDFで保存'; btn.disabled = false; }
   });
