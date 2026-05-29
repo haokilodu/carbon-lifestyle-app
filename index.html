@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>脱炭素型ライフスタイル診断</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
@@ -542,7 +544,62 @@ function renderFinal() {
 }
 
 function savePDF() {
-  window.print();
+  var btn = document.querySelector('.no-print[onclick="savePDF()"]');
+  if (btn) { btn.textContent = '生成中...'; btn.disabled = true; }
+  var target = document.getElementById('app');
+  var noPrintEls = target.querySelectorAll('.no-print');
+  noPrintEls.forEach(function(el) { el.style.display = 'none'; });
+  var printHeader = target.querySelector('.print-header');
+  var printFooter = target.querySelector('.print-footer');
+  if (printHeader) printHeader.style.display = 'block';
+  if (printFooter) printFooter.style.display = 'block';
+  var appHeader = target.querySelector('.app-header');
+  if (appHeader) appHeader.style.display = 'none';
+  html2canvas(target, {
+    scale: 2,
+    useCORS: true,
+    backgroundColor: '#f5faf6',
+    windowWidth: 800
+  }).then(function(canvas) {
+    var imgData = canvas.toDataURL('image/jpeg', 0.92);
+    var pdf = new jspdf.jsPDF('p', 'mm', 'a4');
+    var pdfW = pdf.internal.pageSize.getWidth();
+    var pdfH = pdf.internal.pageSize.getHeight();
+    var margin = 8;
+    var contentW = pdfW - margin * 2;
+    var imgH = canvas.height * contentW / canvas.width;
+    var y = 0;
+    var pageContentH = pdfH - margin * 2;
+    while (y < imgH) {
+      if (y > 0) pdf.addPage();
+      var srcY = y * canvas.width / contentW;
+      var srcH = pageContentH * canvas.width / contentW;
+      if (srcY + srcH > canvas.height) srcH = canvas.height - srcY;
+      var sliceH = srcH * contentW / canvas.width;
+      var sliceCanvas = document.createElement('canvas');
+      sliceCanvas.width = canvas.width;
+      sliceCanvas.height = srcH;
+      var ctx = sliceCanvas.getContext('2d');
+      ctx.drawImage(canvas, 0, srcY, canvas.width, srcH, 0, 0, canvas.width, srcH);
+      var sliceData = sliceCanvas.toDataURL('image/jpeg', 0.92);
+      pdf.addImage(sliceData, 'JPEG', margin, margin, contentW, sliceH);
+      y += pageContentH;
+    }
+    var cityName = state.city || 'result';
+    pdf.save('carbon_lifestyle_' + cityName + '.pdf');
+    noPrintEls.forEach(function(el) { el.style.display = ''; });
+    if (printHeader) printHeader.style.display = 'none';
+    if (printFooter) printFooter.style.display = 'none';
+    if (appHeader) appHeader.style.display = '';
+    if (btn) { btn.textContent = 'PDFで保存'; btn.disabled = false; }
+  }).catch(function(err) {
+    alert('PDF生成に失敗しました。もう一度お試しください。');
+    noPrintEls.forEach(function(el) { el.style.display = ''; });
+    if (printHeader) printHeader.style.display = 'none';
+    if (printFooter) printFooter.style.display = 'none';
+    if (appHeader) appHeader.style.display = '';
+    if (btn) { btn.textContent = 'PDFで保存'; btn.disabled = false; }
+  });
 }
 
 render();
