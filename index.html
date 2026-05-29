@@ -571,7 +571,7 @@ function savePDF() {
     if (printFooter) printFooter.style.display = 'block';
     var appHeader = target.querySelector('.app-header');
     if (appHeader) appHeader.style.display = 'none';
-    return html2canvas(target, { scale: 2, useCORS: true, backgroundColor: '#f5faf6', windowWidth: 800 }).then(function(canvas) {
+    return html2canvas(target, { scale: 2, useCORS: true, backgroundColor: '#ffffff', windowWidth: 800 }).then(function(canvas) {
       var imgData = canvas.toDataURL('image/jpeg', 0.92);
       var pdf = new jspdf.jsPDF('p', 'mm', 'a4');
       var pdfW = pdf.internal.pageSize.getWidth();
